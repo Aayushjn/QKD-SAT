@@ -71,7 +71,7 @@ class NetworkGraph(nx.Graph):
                 return True
         return False
 
-    def calculate_layout_paths(self):
+    def calculate_layout_points(self):
         initial_positions = {i: self.nodes[i]["point"].to_tuple() for i in range(self.num_nodes)}
         spring_positions = nx.spring_layout(self, pos=initial_positions, k=1 / sqrt(sqrt(self.num_nodes)))
         x_max, x_min = max(map(itemgetter(0), spring_positions.values())), min(

@@ -458,8 +458,8 @@ class Simulation(backend.NetworkGraph):
         """ Obtain the position of adversarial nodes """
         node_rectangles = [
             Simulation.rect(
-                node_width + node_width * num_nodes * self.nodes[i]["layout_point"].X,
-                node_height + node_height * num_nodes * self.nodes[i]["layout_point"].Y,
+                node_width + node_width * num_nodes * self.nodes[i]["layout_point"].x,
+                node_height + node_height * num_nodes * self.nodes[i]["layout_point"].y,
                 node_width,
                 node_height,
             )

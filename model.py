@@ -319,3 +319,50 @@ class ProbabilisticModel(Model):
             return optimal_paths
 
         return fn
+
+
+def simulator(
+    num_nodes,
+    input_paths,
+    curiosity_matrix,
+    collaboration_matrix,
+    obj_fn=ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
+):
+    """This function helps in simulating the routing model"""
+    """ Return a generator which generates tuples in the form
+               (num_shares, optimized, chosen_paths, gathering_probability,
+               decoding_probability, breaking_probability, objective_value)
+        This generator never throws an StopIteration exception, an infinite generator
+           """
+    objective_function = ProbabilisticModel.objective_function(num_nodes, curiosity_matrix, collaboration_matrix)
+    print("SIMULATOR: INPUT PATHS", input_paths)
+    num_shares = 0
+    while True:
+        optimized = False
+        optimal_paths = None
+        max_value = -1
+        for chosen_paths in Model.generate_path_combinations(input_paths, num_shares):
+            gathering_probability, decoding_probability, breaking_probability, objective_value = objective_function(
+                chosen_paths, obj_fn, return_probabilities=True
+            )
+            # print("PATH CHOICES:", chosen_paths)
+            # print("OBJECTIVE VALUE:", objective_value)
+            if objective_value > max_value:
+                print("MAX:", objective_value, max_value)
+                max_value = objective_value
+                optimal_paths = chosen_paths
+            yield num_shares, optimized, chosen_paths, gathering_probability, decoding_probability, breaking_probability, objective_value
+        if optimal_paths:
+            optimized = True
+            gathering_probability, decoding_probability, breaking_probability, objective_value = objective_function(
+                optimal_paths, obj_fn, return_probabilities=True
+            )
+            print("OPTIMAL PATH CHOICES:", optimal_paths)
+            print("OPTIMAL OBJECTIVE VALUE:", objective_value)
+            yield num_shares, optimized, optimal_paths, gathering_probability, decoding_probability, breaking_probability, objective_value
+        num_shares += 1
+
+
+""" Define them as global constants for direct access """
+NO_NODE_BREAK_SECRET = ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET
+SOME_NODE_BREAK_SECRET = ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET
