@@ -1,9 +1,10 @@
-from math import sqrt
+from datetime import timedelta
 from operator import itemgetter
 
 import networkx as nx
 
 from point import Point
+from util import limit_function_execution
 
 
 class NetworkGraph(nx.Graph):
@@ -12,7 +13,7 @@ class NetworkGraph(nx.Graph):
     end_node: int
     num_adversaries: int
     links: list[tuple[int, int]]
-    reduced_paths: list[list[int]]
+    reduced_paths: set[tuple[int, ...]]
 
     def __init__(self, num_nodes: int):
         super().__init__()
@@ -28,7 +29,7 @@ class NetworkGraph(nx.Graph):
 
     def _calculate_distances(self):
         distances = [
-            (self.nodes[i]["point"].distance(self.nodes[j]["point"]), i, j)
+            (self.nodes[i]["point"].euclid_distance(self.nodes[j]["point"]), i, j)
             for i in range(self.num_nodes)
             for j in range(i)
         ]
@@ -42,11 +43,11 @@ class NetworkGraph(nx.Graph):
             if nx.is_connected(self):
                 break
         else:
-            raise RuntimeError("Unexpected in-ability to construct graph")
+            raise RuntimeError("Unexpected inability to construct graph")
 
     def _calculate_paths(self):
         simple_paths = nx.all_simple_paths(self, self.start_node, self.end_node)
-        self.reduced_paths = []
+        self.reduced_paths = set()
         for path in simple_paths:
             append_path = True
             for some_path in self.reduced_paths.copy():
@@ -54,9 +55,9 @@ class NetworkGraph(nx.Graph):
                 if path_set.issuperset(some_path):
                     append_path = False
                 elif path_set.issubset(some_path):
-                    self.reduced_paths.append(some_path)
+                    self.reduced_paths.add(tuple(some_path))
             if append_path:
-                self.reduced_paths.append(path)
+                self.reduced_paths.add(tuple(path))
 
     def construct_connected_graph(self):
         self._add_random_nodes()
@@ -64,23 +65,13 @@ class NetworkGraph(nx.Graph):
         self._generate_graph()
         self._calculate_paths()
 
-    def ensure_at_least_n_paths(self, n: int, retries: int = 20) -> bool:
+    def ensure_at_least_n_paths(self, n: int, retries: int = 20, timeout: timedelta = timedelta(seconds=45)) -> bool:
         for _ in range(retries):
-            self.construct_connected_graph()
+            try:
+                limit_function_execution(10, self.construct_connected_graph)
+            except TimeoutError:
+                continue
+            # self.construct_connected_graph()
             if len(self.reduced_paths) >= n:
                 return True
         return False
-
-    def calculate_layout_points(self):
-        initial_positions = {i: self.nodes[i]["point"].to_tuple() for i in range(self.num_nodes)}
-        spring_positions = nx.spring_layout(self, pos=initial_positions, k=1 / sqrt(sqrt(self.num_nodes)))
-        x_max, x_min = max(map(itemgetter(0), spring_positions.values())), min(
-            map(itemgetter(0), spring_positions.values())
-        )
-        y_max, y_min = max(map(itemgetter(1), spring_positions.values())), min(
-            map(itemgetter(1), spring_positions.values())
-        )
-        for i in range(self.num_nodes):
-            self.nodes[i]["layout_point"] = Point.normalize(
-                *spring_positions[i], x_range=(x_min, x_max), y_range=(y_min, y_max)
-            )

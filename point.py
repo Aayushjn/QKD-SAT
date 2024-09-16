@@ -16,17 +16,11 @@ class Point:
     def euclid_distance(self, other: "Point") -> float:
         return sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
-    def normalize(self, x_range: tuple[float, float], y_range: tuple[float, float]):
-        if not x_range[0] <= self.x <= x_range[1] or not y_range[0] <= self.y <= y_range[1]:
-            raise ValueError(
-                f"Point({self.x}, {self.y}) is not in [{x_range[0]}, {x_range[1]}] x [{y_range[0]}, {y_range[1]}] range"
-            )
+    def __str__(self) -> str:
+        return f"({self.x}, {self.y})"
 
-        self.x = (self.x - x_range[0]) / (x_range[1] - x_range[0])
-        self.y = (self.y - y_range[0]) / (y_range[1] - y_range[0])
-
-    def to_tuple(self) -> tuple[float, float]:
-        return self.x, self.y
+    def __repr__(self) -> str:
+        return f"Point({self.x}, {self.y})"
 
     @classmethod
     def random(cls) -> "Point":

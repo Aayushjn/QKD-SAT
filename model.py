@@ -1,13 +1,17 @@
 from abc import ABC
 from abc import abstractmethod
-from enum import auto
 from enum import Enum
+from enum import auto
 from itertools import combinations
 from itertools import combinations_with_replacement
 from random import gauss
-from typing import Iterator
+from typing import Iterator, Any, Collection, Iterable
 
 import numpy as np
+
+
+_DEFAULT_MU = 0.5
+_DEFAULT_STD = 0.25
 
 
 class Model(ABC):
@@ -37,7 +41,7 @@ class Model(ABC):
 
     @staticmethod
     def generate_path_combinations(
-        paths: list[int], num_paths: int, with_replacement: bool = True
+        paths: Collection[int] | Collection[Iterable[int]], num_paths: int, with_replacement: bool = True
     ) -> Iterator[tuple[int, ...]]:
         if len(paths) == 0:
             return
@@ -58,13 +62,7 @@ class ProbabilisticModel(Model):
         SOME_NODE_BREAK_SECRET = auto()
 
     @staticmethod
-    def parse_gauss_params(**kwargs) -> tuple[float, float]:
-        mu = kwargs["mu"] if "mu" in kwargs else 0.5
-        std = kwargs["std"] if "std" in kwargs else 0.25
-        return mu, std
-
-    @staticmethod
-    def random_curiosity(num_nodes: int, **kwargs) -> np.ndarray:
+    def random_curiosity(num_nodes: int, mu: float = _DEFAULT_MU, std: float = _DEFAULT_STD) -> np.ndarray:
         """
         Generates a random curiosity matrix for a probabilistic model.
 
@@ -87,14 +85,13 @@ class ProbabilisticModel(Model):
         curiosity_matrix: np.ndarray
             A 1D numpy array of size num_nodes representing the curiosity matrix
         """
-        mu, std = ProbabilisticModel.parse_gauss_params(**kwargs)
         curiosity_matrix = np.ones(num_nodes)
         for i in range(1, num_nodes - 1):
             curiosity_matrix[i] = ProbabilisticModel.random_value(mu, std)
         return curiosity_matrix
 
     @staticmethod
-    def random_collaboration(num_nodes: int, **kwargs) -> np.ndarray:
+    def random_collaboration(num_nodes: int, mu: float = _DEFAULT_MU, std: float = _DEFAULT_STD) -> np.ndarray:
         """
         Generates a random collaboration matrix for a probabilistic model.
 
@@ -117,7 +114,6 @@ class ProbabilisticModel(Model):
         collaboration_matrix: np.ndarray
             A 2D numpy array of size (num_nodes, num_nodes) representing the collaboration matrix
         """
-        mu, std = ProbabilisticModel.parse_gauss_params(**kwargs)
         collaboration_matrix = np.zeros((num_nodes, num_nodes))
         for i in range(num_nodes):
             collaboration_matrix[i, i] = 1.0
@@ -128,7 +124,7 @@ class ProbabilisticModel(Model):
 
     @staticmethod
     def gathering_probability(
-        num_nodes: int, paths: list[tuple[int, ...]], collaboration_matrix: np.ndarray
+        num_nodes: int, paths: Iterable[Iterable[int]], collaboration_matrix: np.ndarray
     ) -> np.ndarray:
         """
         Calculates the probability of a node gathering all the shares from given paths.
@@ -200,7 +196,7 @@ class ProbabilisticModel(Model):
         return gathering_probability * decoding_probability
 
     @staticmethod
-    def no_node_break_secret(breaking_probability: np.ndarray) -> np.int64:
+    def no_node_break_secret(breaking_probability: np.ndarray) -> np.float64:
         """
         Calculates the probability that no node breaks the secret given the breaking probabilities of the nodes.
 
@@ -211,13 +207,13 @@ class ProbabilisticModel(Model):
 
         Returns
         -------
-        no_node_break_secret: np.int64
+        no_node_break_secret: np.float64
             The probability that no node breaks the secret
         """
         return np.prod(1 - breaking_probability[1:-1])
 
     @staticmethod
-    def some_node_break_secret(breaking_probability: np.ndarray) -> np.int64:
+    def some_node_break_secret(breaking_probability: np.ndarray) -> np.float64:
         """
         Calculates the probability that at least one node breaks the secret given the breaking probabilities of the nodes.
 
@@ -236,7 +232,7 @@ class ProbabilisticModel(Model):
     @staticmethod
     def objective_value(
         breaking_probability: np.ndarray, obj_fn: ObjectFunction = ObjectFunction.NO_NODE_BREAK_SECRET
-    ) -> np.int64:
+    ) -> np.float64:
         if obj_fn == ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET:
             return ProbabilisticModel.no_node_break_secret(breaking_probability)
         elif obj_fn == ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET:
@@ -245,10 +241,10 @@ class ProbabilisticModel(Model):
     @staticmethod
     def objective_function(num_nodes: int, curiosity_matrix: np.ndarray, collaboration_matrix: np.ndarray):
         def fn(
-            paths: list[tuple[int, ...]],
+            paths: Collection[Any],
             obj_fn: ProbabilisticModel.ObjectFunction = ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
             return_probabilities: bool = False,
-        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.int64] | np.int64:
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float64] | np.float64:
             """
             Calculates the objective value of a set of paths in a probabilistic routing model.
 
@@ -286,7 +282,7 @@ class ProbabilisticModel(Model):
         objective_fn = ProbabilisticModel.objective_function(num_nodes, curiosity_matrix, collaboration_matrix)
 
         def fn(
-            paths: list[tuple[int, ...]],
+            paths: Collection[Iterable[int]],
             num_paths: int,
             obj_fn: ProbabilisticModel.ObjectFunction = ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
         ) -> tuple[int, ...]:
@@ -322,18 +318,12 @@ class ProbabilisticModel(Model):
 
 
 def simulator(
-    num_nodes,
-    input_paths,
-    curiosity_matrix,
-    collaboration_matrix,
-    obj_fn=ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
+    num_nodes: int,
+    input_paths: Collection[Collection[int]],
+    curiosity_matrix: np.ndarray,
+    collaboration_matrix: np.ndarray,
+    obj_fn: ProbabilisticModel.ObjectFunction = ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
 ):
-    """This function helps in simulating the routing model"""
-    """ Return a generator which generates tuples in the form
-               (num_shares, optimized, chosen_paths, gathering_probability,
-               decoding_probability, breaking_probability, objective_value)
-        This generator never throws an StopIteration exception, an infinite generator
-           """
     objective_function = ProbabilisticModel.objective_function(num_nodes, curiosity_matrix, collaboration_matrix)
     print("SIMULATOR: INPUT PATHS", input_paths)
     num_shares = 0
@@ -361,8 +351,3 @@ def simulator(
             print("OPTIMAL OBJECTIVE VALUE:", objective_value)
             yield num_shares, optimized, optimal_paths, gathering_probability, decoding_probability, breaking_probability, objective_value
         num_shares += 1
-
-
-""" Define them as global constants for direct access """
-NO_NODE_BREAK_SECRET = ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET
-SOME_NODE_BREAK_SECRET = ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET
