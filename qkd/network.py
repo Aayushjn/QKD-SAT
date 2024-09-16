@@ -1,7 +1,7 @@
-from itertools import pairwise
 import os
 import random
 import sys
+from itertools import pairwise
 from typing import Iterable
 
 import networkx as nx
@@ -15,7 +15,7 @@ class NetworkPath(tuple):
         val = super().__new__(cls, path)
         val.risk = risk
         return val
-    
+
     def __str__(self):
         return super().__repr__()
 

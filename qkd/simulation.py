@@ -1,6 +1,4 @@
 from itertools import pairwise
-from operator import itemgetter
-import random
 
 import matplotlib.cm as cm
 import matplotlib.colors as colors
@@ -77,7 +75,9 @@ node_size = [1000 * net_graph.curiosity_matrix[i] for i in node_list]
 nx.draw_networkx_nodes(
     net_graph, pos=pos, ax=axes[1, 0], nodelist=node_list, node_color=node_color, node_size=node_size
 )
-nx.draw_networkx_edges(net_graph, pos=pos, ax=axes[1, 0], edgelist=edge_list.keys(), edge_color=edge_list.values(), width=2)
+nx.draw_networkx_edges(
+    net_graph, pos=pos, ax=axes[1, 0], edgelist=edge_list.keys(), edge_color=edge_list.values(), width=2
+)
 nx.draw_networkx_labels(net_graph, pos=pos, ax=axes[1, 0], labels={node: str(node) for node in node_list}, font_size=10)
 axes[1, 0].set_title("Disjoint Paths")
 
