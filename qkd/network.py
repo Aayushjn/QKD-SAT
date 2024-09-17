@@ -1,11 +1,14 @@
+from operator import itemgetter
 import os
-import random
 import sys
+from functools import cache
 from itertools import pairwise
 from typing import Iterable
 
 import networkx as nx
 import numpy as np
+
+from point import Point
 
 
 class NetworkPath(tuple):
@@ -24,7 +27,7 @@ class NetworkPath(tuple):
 
 
 class Network(nx.Graph):
-    disjoint_paths: list[NetworkPath]
+    reduced_paths: list[NetworkPath]
     curiosity_matrix: np.ndarray[np.float64]
     collaboration_matrix: np.ndarray[np.float64]
 
@@ -35,12 +38,19 @@ class Network(nx.Graph):
         self.curiosity_matrix = curiosity_matrix
         self.collaboration_matrix = collaboration_matrix
 
-    def determine_disjoint_paths(self):
-        self.disjoint_paths = [
-            NetworkPath(path, risk=self.path_risk(path))
-            for path in nx.node_disjoint_paths(self, 0, self.number_of_nodes() - 1)
+    def determine_reduced_paths(self):
+        reduced_paths = [
+            NetworkPath(path, risk=self.path_risk(tuple(path)))
+            for path in nx.all_simple_paths(self, 0, self.number_of_nodes() - 1)
         ]
-        self.disjoint_paths.sort(key=lambda path: path.risk)
+        reduced_paths.sort(key=lambda path: path.risk)
+        
+        last_path = reduced_paths[0]
+        self.reduced_paths = [last_path]
+        for path in reduced_paths[1:]:
+            if path.risk != last_path.risk:
+                self.reduced_paths.append(path)
+                last_path = path
 
     def node_risk(self, node: int) -> float:
         return self.curiosity_matrix[node] * (
@@ -50,26 +60,34 @@ class Network(nx.Graph):
     def edge_risk(self, edge: tuple[int, int]) -> float:
         if edge[1] == self.number_of_nodes() - 1:
             return 0.0
-        return 0.5 * self.curiosity_matrix[edge[1]] + 0.5 * np.mean(self.collaboration_matrix[edge[1]])
+        return self.curiosity_matrix[edge[1]] * np.mean(self.collaboration_matrix[edge[1]])
 
     def edge_capacity(self, edge: tuple[int, int]) -> float:
         return 1.0 - self.edge_risk(edge)
 
-    def path_risk(self, path: list[tuple[int, ...]]) -> float:
+    @cache
+    def path_risk(self, path: tuple[int, ...]) -> float:
         return np.sum([self.edge_risk(edge) for edge in pairwise(path)]) / (len(path) - 1)
-
-    def optimality(self, threshold: float = 0.8) -> int:
-        candidates = []
-        for m in range(len(self.disjoint_paths), 0, -1):
-            q_values = [self.node_risk(node) ** m for node in self.nodes]
-            print(q_values)
-            if all(q_value < threshold for q_value in q_values):
-                candidates.append(m)
-        return min(candidates)
 
     @classmethod
     def random(cls, num_nodes: int) -> "Network":
-        graph = nx.generators.hnm_harary_graph(num_nodes, 3 * num_nodes)
+        graph = nx.Graph()
+        for node in range(num_nodes):
+            graph.add_node(node, point=Point.random())
+        distances = [
+            (graph.nodes[i]["point"].euclid_distance(graph.nodes[j]["point"]), i, j)
+            for i in range(num_nodes)
+            for j in range(i)
+        ]
+        links = list(map(itemgetter(1, 2), sorted(distances, key=itemgetter(0))))
+        for edge in links:
+            if {0, num_nodes - 1} == set(edge):
+                continue
+            graph.add_edge(*edge)
+            if nx.is_connected(graph):
+                break
+        else:
+            raise RuntimeError("Unexpected inability to construct graph")
 
         rng = np.random.default_rng(seed=int.from_bytes(os.urandom(4), sys.byteorder))
         curiosity = rng.random(num_nodes)
@@ -79,18 +97,10 @@ class Network(nx.Graph):
             for j in range(1, i):
                 collaboration[i, j] = collaboration[j, i] = rng.random()
 
-        if graph.has_edge(0, graph.number_of_nodes() - 1):
-            graph.remove_edge(0, graph.number_of_nodes() - 1)
-
-        if not nx.has_path(graph, 0, graph.number_of_nodes() - 1):
-            intermediate_node = random.choice(range(1, graph.number_of_nodes() - 1))
-            graph.add_edge(0, intermediate_node)
-            graph.add_edge(intermediate_node, graph.number_of_nodes() - 1)
-
         assert nx.is_connected(graph)
         assert nx.has_path(graph, 0, graph.number_of_nodes() - 1)
 
         g = cls(graph, curiosity, collaboration)
-        nx.set_edge_attributes(graph, {e: g.edge_capacity(e) for e in graph.edges}, "capacity")
-        g.determine_disjoint_paths()
+        nx.set_edge_attributes(graph, {e: g.edge_risk(e) for e in graph.edges}, "weight")
+        g.determine_reduced_paths()
         return g
