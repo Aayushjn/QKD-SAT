@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from network import Network
+from qkd import optimality
 
 
 np.set_printoptions(linewidth=120)
@@ -11,6 +12,7 @@ np.set_printoptions(linewidth=120)
 num_nodes = 10
 net_graph = Network.random(num_nodes)
 print(net_graph.reduced_paths)
+print(optimality(num_nodes, net_graph.curiosity_matrix, net_graph.collaboration_matrix, net_graph.reduced_paths))
 
 fig, axes = plt.subplots(1, 2)
 # pos = nx.bfs_layout(network_graph, 0)
