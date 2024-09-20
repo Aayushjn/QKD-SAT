@@ -96,17 +96,17 @@ class NetworkGraph(nx.Graph):
 
     def __calculate_paths__(self):
         """Construct reduced paths. A set of path is reduced if no path (in terms of nodes) is a subset of another"""
-        simple_paths = nx.all_simple_paths(self, self.start_node, self.end_node)
-        self.reduced_paths = []
-        for path in simple_paths:
-            append_path = True
-            for some_path in self.reduced_paths.copy():
-                if set(path).issuperset(some_path):
-                    append_path = False
-                elif set(path).issubset(some_path):
-                    self.reduced_paths.remove(some_path)
-            if append_path:
-                self.reduced_paths.append(path)
+        # simple_paths = list(nx.all_simple_paths(self, self.start_node, self.end_node))
+        self.reduced_paths = list(nx.all_simple_paths(self, self.start_node, self.end_node))
+        # for path in simple_paths:
+        #     append_path = True
+        #     for some_path in self.reduced_paths.copy():
+        #         if set(path).issuperset(some_path):
+        #             append_path = False
+        #         elif set(path).issubset(some_path):
+        #             self.reduced_paths.remove(some_path)
+        #     if append_path:
+        #         self.reduced_paths.append(path)
 
     def construct_connected_graph(self):
         """Construct a connected graph by running required utility functions"""
@@ -353,42 +353,42 @@ SOME_NODE_BREAK_SECRET = ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRE
 if __name__ == "__main__":
     """Just sample code to show usage"""
     NUM_NODES = 12  # Including start and end points
-    graph = NetworkGraph(num_nodes=NUM_NODES)
-    graph.construct_connected_graph()
-    print(graph.reduced_paths)
+    # graph = NetworkGraph(num_nodes=NUM_NODES)
+    # graph.construct_connected_graph()
+    # print(graph.reduced_paths)
 
-    graph.ensure_at_least_n_paths(n=5)
-    print(graph.reduced_paths)
+    # graph.ensure_at_least_n_paths(n=5)
+    # print(graph.reduced_paths)
 
-    graph.ensure_at_least_n_paths(n=5)
-    graph.calculate_layout_points()
-    for i in range(NUM_NODES):
-        print("Original: ", graph.nodes[i]["point"], "Layout: ", graph.nodes[i]["layout_point"])
+    # graph.ensure_at_least_n_paths(n=5)
+    # graph.calculate_layout_points()
+    # for i in range(NUM_NODES):
+    #     print("Original: ", graph.nodes[i]["point"], "Layout: ", graph.nodes[i]["layout_point"])
 
     curiosity = ProbabilisticModel.random_curiosity(num_nodes=NUM_NODES)
     collaboration = ProbabilisticModel.random_collaboration(num_nodes=NUM_NODES)
-    print("Curiosity:", curiosity)
-    print("Collaboration:", collaboration)
-    """ Sending a share from each of the reduced path 1 per path """
-    paths = graph.reduced_paths
-    objective_function = ProbabilisticModel.objective_function(
-        num_nodes=NUM_NODES, curiosity_matrix=curiosity, collaboration_matrix=collaboration
-    )
-    print("Paths:", paths)
-    print(
-        ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET,
-        objective_function(paths, ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET),
-    )
-    print(
-        ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
-        objective_function(paths, ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET),
-    )
-    for path in Model.generate_path_combinations(paths, 4):
-        print(path)
-    optimal_choice = ProbabilisticModel.optimal_choice(
-        num_nodes=NUM_NODES, curiosity_matrix=curiosity, collaboration_matrix=collaboration
-    )
-    print(optimal_choice(paths, 4))
+    # print("Curiosity:", curiosity)
+    # print("Collaboration:", collaboration)
+    # """ Sending a share from each of the reduced path 1 per path """
+    # paths = graph.reduced_paths
+    # objective_function = ProbabilisticModel.objective_function(
+    #     num_nodes=NUM_NODES, curiosity_matrix=curiosity, collaboration_matrix=collaboration
+    # )
+    # print("Paths:", paths)
+    # print(
+    #     ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET,
+    #     objective_function(paths, ProbabilisticModel.ObjectFunction.SOME_NODE_BREAK_SECRET),
+    # )
+    # print(
+    #     ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET,
+    #     objective_function(paths, ProbabilisticModel.ObjectFunction.NO_NODE_BREAK_SECRET),
+    # )
+    # for path in Model.generate_path_combinations(paths, 4):
+    #     print(path)
+    # optimal_choice = ProbabilisticModel.optimal_choice(
+    #     num_nodes=NUM_NODES, curiosity_matrix=curiosity, collaboration_matrix=collaboration
+    # )
+    # print(optimal_choice(paths, 4))
 
     graph = NetworkGraph(num_nodes=NUM_NODES)
     graph.construct_connected_graph()

@@ -5,14 +5,13 @@ import networkx as nx
 import numpy as np
 from network import Network
 from qkd import optimality
-
+import random
 
 np.set_printoptions(linewidth=120)
 
-num_nodes = 10
+num_nodes = random.randint(15, 20)
+# num_nodes = 12
 net_graph = Network.random(num_nodes)
-print(net_graph.reduced_paths)
-print(optimality(num_nodes, net_graph.curiosity_matrix, net_graph.collaboration_matrix, net_graph.reduced_paths))
 
 fig, axes = plt.subplots(1, 2)
 # pos = nx.bfs_layout(network_graph, 0)
@@ -93,4 +92,14 @@ axes[1].set_title("Collaboration Graph")
 
 
 fig.tight_layout()
+
+print(net_graph)
+print("Average path length: ", sum(len(path) for path in net_graph.simple_paths) / len(net_graph.simple_paths))
+# print("Simple Paths:", net_graph.simple_paths)
+# print(net_graph.curiosity_matrix)
+# print(net_graph.collaboration_matrix)
+
+opt = optimality(net_graph.simple_paths, tuple(net_graph.curiosity_matrix), tuple(tuple(row) for row in net_graph.collaboration_matrix))
+print("\r\n", opt, end="\r\n")
+
 plt.show()
