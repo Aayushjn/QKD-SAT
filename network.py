@@ -1,6 +1,4 @@
-import os
 import random
-import sys
 from functools import cache
 from itertools import pairwise
 from pathlib import Path
@@ -8,6 +6,8 @@ from typing import Iterable
 
 import networkx as nx
 import numpy as np
+import numpy.typing as npt
+
 from rng import random_collaboration_matrix
 from rng import random_curiosity_matrix
 
@@ -28,15 +28,15 @@ class NetworkPath(tuple):
 
 
 class Network(nx.Graph):
-    simple_paths: list[NetworkPath]
-    curiosity_matrix: np.ndarray[np.float64]
-    collaboration_matrix: np.ndarray[np.float64]
+    simple_paths: tuple[NetworkPath]
+    curiosity_matrix: npt.NDArray[np.float64]
+    collaboration_matrix: npt.NDArray[np.float64]
 
     def __init__(
         self,
         graph: nx.Graph,
-        curiosity_matrix: np.ndarray[np.float64] | None = None,
-        collaboration_matrix: np.ndarray[np.float64] | None = None,
+        curiosity_matrix: npt.NDArray[np.float64] | None = None,
+        collaboration_matrix: npt.NDArray[np.float64] | None = None,
     ):
         super().__init__(graph)
 
@@ -59,13 +59,14 @@ class Network(nx.Graph):
         reduced_paths.sort(key=lambda path: path.weight)
 
         last_path = reduced_paths[0]
-        self.simple_paths = [last_path]
+        simple_paths = [last_path]
         for path in reduced_paths[1:]:
             if path.weight != last_path.weight:
-                self.simple_paths.append(path)
+                simple_paths.append(path)
                 last_path = path
 
-    @cache
+        self.simple_paths = tuple(simple_paths)
+
     def node_risk(self, node: int) -> float:
         return self.curiosity_matrix[node] * (
             1.0 - np.prod([1 - self.collaboration_matrix[node, j] for j in range(1, self.number_of_nodes() - 1)])
@@ -81,13 +82,13 @@ class Network(nx.Graph):
     def path_weight(self, path: tuple[int, ...]) -> float:
         return np.sum([self.edge_weight(edge) for edge in pairwise(path)]) / (len(path) - 1)
 
-    def to_file(self, path: Path):
+    def to_dir(self, path: Path):
         nx.write_adjlist(self, str(path.joinpath("graph.txt")))
         np.save(path.joinpath("curiosity.npy"), self.curiosity_matrix)
         np.save(path.joinpath("collaboration.npy"), self.collaboration_matrix)
 
     @classmethod
-    def from_file(cls, path: Path) -> "Network":
+    def from_dir(cls, path: Path) -> "Network":
         graph = nx.read_adjlist(path.joinpath("graph.txt"))
         graph = nx.relabel_nodes(graph, {node: int(node) for node in graph.nodes})
         curiosity = np.load(path.joinpath("curiosity.npy"))

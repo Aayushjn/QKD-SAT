@@ -1,0 +1,13 @@
+#sim.py --num-nodes 10 --new-graph --num-runs 10 --bin-size 0.2 --vary both
+# GMT Wed Oct 16 10:51:57 2024
+# 
+0 1 5 2
+1 2 6
+2 3 7
+3 4 8
+4 5 9
+5 6
+6 7
+7 8
+8 9
+9
