@@ -3,8 +3,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from network import Network
 from draw import draw_network_graph
+from network import Network
 
 np.set_printoptions(linewidth=120)
 
@@ -13,7 +13,9 @@ graph_dir = Path.cwd().joinpath("graphs")
 for path in graph_dir.iterdir():
     if path.is_dir():
         net_graph = Network.from_dir(path)
-        
+
+        print(net_graph, len(net_graph.simple_paths))
+
         draw_network_graph(net_graph, window_title=path.name)
 
 plt.show()

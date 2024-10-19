@@ -1,5 +1,6 @@
 import sys
 from argparse import ArgumentParser
+from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 from itertools import product
 from math import ceil
@@ -10,7 +11,7 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 import pandas as pd
-from tqdm import trange
+from tqdm import tqdm
 
 from network import Network
 from qkd import optimality
@@ -33,11 +34,21 @@ np.set_printoptions(linewidth=120)
 graph_dir = Path.cwd().joinpath("graphs").joinpath(f"n{args.num_nodes}")
 graph_dir.mkdir(parents=True, exist_ok=True)
 
+res_path = Path.cwd().joinpath("results")
+res_path.mkdir(parents=True, exist_ok=True)
+outfile = res_path.joinpath(f"{args.vary}.csv")
+
 if args.new_graph:
     net_graph = Network.random(args.num_nodes)
     net_graph.to_dir(graph_dir)
+    completed_idx = set()
 else:
     net_graph = Network.from_dir(graph_dir)
+    if not outfile.exists() or outfile.stat().st_size == 0:
+        completed_idx = set()
+    else:
+        existing_data = pd.read_csv(str(outfile))
+        completed_idx = set(existing_data.loc[existing_data["graph_size"] == args.num_nodes]["bins"].apply(eval))
 
 num_bins = floor(1.0 / args.bin_size)
 num_nodes = net_graph.number_of_nodes()
@@ -49,7 +60,7 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
     i, j = idx
 
     bin_total = 0
-    for _ in trange(args.num_runs, dynamic_ncols=True, leave=True):
+    for _ in range(args.num_runs):
         if args.vary == "curiosity":
             ng = Network(
                 net_graph,
@@ -81,33 +92,40 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
             ng.simple_paths,
             tuple(ng.curiosity_matrix),
             tuple(tuple(row) for row in ng.collaboration_matrix),
-            RiskFunction.MEAN,
+            RiskFunction.SUM,
         )
 
         bin_total += opt[0]
+        # print(f"======== {idx} ======== {opt}")
 
     return idx, ceil(bin_total / args.num_runs)
 
 
+def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
+    results = []
+
+    with ProcessPoolExecutor(max_workers=(cpu_count() or 2) - 1) as executor:
+        futures = [executor.submit(run_simulation, idx) for idx in simulations]
+        for future in tqdm(as_completed(futures), total=len(futures), dynamic_ncols=True):
+            results.append(future.result())
+            if len(results) >= batch_size:
+                yield results
+                results = []
+
+    if results:
+        yield results
+
+
 if args.vary == "curiosity":
-    curiosities = list(range(num_bins))
-    collaborations = [-1]
+    simulations = [(i, -1) for i in range(num_bins) if (i, -1) not in completed_idx]
 elif args.vary == "collaboration":
-    curiosities = [-1]
-    collaborations = list(range(num_bins))
+    simulations = [(-1, j) for j in range(num_bins) if (-1, j) not in completed_idx]
 else:
-    curiosities = list(range(num_bins))
-    collaborations = list(range(num_bins))
+    simulations = [(i, j) for i, j in product(range(num_bins), repeat=2) if (i, j) not in completed_idx]
 
-with ProcessPoolExecutor(max_workers=(cpu_count() or 2) - 1) as executor:
-    results = executor.map(run_simulation, product(curiosities, collaborations))
 
-df = pd.DataFrame.from_records(results, columns=["bins", "optimal_parts"])
-df["graph_size"] = [num_nodes] * len(df)
-df = df[["graph_size", "bins", "optimal_parts"]]
-
-res_path = Path.cwd().joinpath("results")
-res_path.mkdir(parents=True, exist_ok=True)
-file = res_path.joinpath(f"{args.vary}.csv")
-
-df.to_csv(str(file), mode="a+", header=not file.exists() or file.stat().st_size == 0, index=False)
+for batch in batch_simulation(simulations):
+    df = pd.DataFrame.from_records(batch, columns=["bins", "optimal_parts"])
+    df["graph_size"] = [num_nodes] * len(df)
+    df = df[["graph_size", "bins", "optimal_parts"]]
+    df.to_csv(str(outfile), mode="a+", header=not outfile.exists() or outfile.stat().st_size == 0, index=False)

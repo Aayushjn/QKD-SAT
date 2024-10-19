@@ -87,6 +87,12 @@ class Network(nx.Graph):
         np.save(path.joinpath("curiosity.npy"), self.curiosity_matrix)
         np.save(path.joinpath("collaboration.npy"), self.collaboration_matrix)
 
+    def __str__(self):
+        if not hasattr(self, "simple_paths") or not self.simple_paths:
+            return super().__str__()
+
+        return f"{super().__str__()} with {len(self.simple_paths)} paths"
+
     @classmethod
     def from_dir(cls, path: Path) -> "Network":
         graph = nx.read_adjlist(path.joinpath("graph.txt"))

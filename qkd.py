@@ -34,23 +34,20 @@ def gathering_probability(node: int, paths: list[NetworkPath], collaboration_mat
     P_A -> probability that node A gathers all parts (collaboration)
     """
     collab = np.array(collaboration_matrix)
-    return np.prod([1.0 - np.prod([1 - collab[node, j] for j in path[1:-1]]) for path in paths])
+    reduced_paths = list(filter(lambda path: node not in path, paths))
+    return np.prod([1.0 - np.prod([1 - collab[node, j] for j in path[1:-1]]) for path in reduced_paths])
 
 
 @cache
 def path_breaking_probability(
     path: NetworkPath,
     paths: tuple[NetworkPath],
-    num_shares: int,
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64, ...]],
     risk_fn: RiskFunction,
 ) -> float | np.float64:
     return risk_function(risk_fn)(
-        [
-            (curiosity_matrix[node] ** num_shares) * gathering_probability(node, paths, collaboration_matrix)
-            for node in path[1:-1]
-        ]
+        [curiosity_matrix[node] * (gathering_probability(node, paths, collaboration_matrix)) for node in path[1:-1]]
     )
 
 
@@ -69,7 +66,6 @@ def compute_mean_q_values(
             pbp = path_breaking_probability(
                 path,
                 chosen_paths[:path_no] + chosen_paths[path_no + 1 :],
-                m,
                 curiosity_matrix,
                 collaboration_matrix,
                 risk_fn,
@@ -86,14 +82,11 @@ def optimality(
     collaboration_matrix: tuple[tuple[np.float64, ...]],
     risk_fn: RiskFunction = RiskFunction.MAX,
 ) -> tuple[int, tuple[NetworkPath, ...]]:
-    optimal_parts = 0
+    optimal_parts = 1
     optimal_paths: tuple[NetworkPath, ...] = (paths[0],)
 
-    if risk_fn == RiskFunction.SUM:
-        max_q_value = sys.maxsize
-    else:
-        max_q_value = 1
-    norm_factor = int(0.25 * len(paths))
+    max_q_value = sys.maxsize if risk_fn == RiskFunction.SUM else 1
+    norm_factor = int(1 * len(paths))
 
     for m in range(2, len(paths) + 1):
         path_combinations = combinations(paths, m)
@@ -101,7 +94,8 @@ def optimality(
             mean_q_values = compute_mean_q_values(
                 chosen_paths, m, norm_factor, curiosity_matrix, collaboration_matrix, risk_fn
             )
-            if np.max(mean_q_values) >= max_q_value:
+            mq = np.max(mean_q_values)
+            if mq >= max_q_value:
                 return optimal_parts, optimal_paths
 
             max_q_value = max(mean_q_values)
