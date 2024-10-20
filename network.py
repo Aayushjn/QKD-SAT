@@ -76,7 +76,7 @@ class Network(nx.Graph):
     def edge_weight(self, edge: tuple[int, int]) -> float:
         if edge[1] == self.number_of_nodes() - 1:
             return 0.0
-        return self.curiosity_matrix[edge[1]] * np.mean(self.collaboration_matrix[edge[1]])
+        return self.curiosity_matrix[edge[1]] * np.mean(np.delete(self.collaboration_matrix[edge[1]], edge[1]))
 
     @cache
     def path_weight(self, path: tuple[int, ...]) -> float:

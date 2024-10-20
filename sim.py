@@ -92,7 +92,7 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
             ng.simple_paths,
             tuple(ng.curiosity_matrix),
             tuple(tuple(row) for row in ng.collaboration_matrix),
-            RiskFunction.ANY_NODE,
+            RiskFunction.ATLEAST_ONE_NODE_BREAKS_SECRET,
         )
 
         bin_total += opt[0]
@@ -104,7 +104,7 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
 def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
     results = []
 
-    with ProcessPoolExecutor(max_workers=(cpu_count() or 2) // 2) as executor:
+    with ProcessPoolExecutor(max_workers=(cpu_count() or 2) - 1) as executor:
         futures = [executor.submit(run_simulation, idx) for idx in simulations]
         for future in tqdm(as_completed(futures), total=len(futures), dynamic_ncols=True):
             results.append(future.result())
