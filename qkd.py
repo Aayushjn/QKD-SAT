@@ -1,7 +1,8 @@
 import enum
-import sys
 from functools import cache
 from itertools import combinations
+from math import ceil
+from math import comb
 from typing import Callable
 from typing import Collection
 
@@ -12,18 +13,15 @@ from network import NetworkPath
 
 
 class RiskFunction(enum.Enum):
-    MAX = "max"
-    SUM = "sum"
-    MEAN = "mean"
+    MOST_RISKY_NODE = "most-risky-node"
+    ANY_NODE = "any-node"
 
 
 def risk_function(fn_type: RiskFunction) -> Callable[[Collection[float | np.float64]], float | np.float64]:
-    if fn_type == RiskFunction.MAX:
+    if fn_type == RiskFunction.MOST_RISKY_NODE:
         return max
-    elif fn_type == RiskFunction.SUM:
-        return sum
-    elif fn_type == RiskFunction.MEAN:
-        return lambda x: sum(x) / len(x)
+    elif fn_type == RiskFunction.ANY_NODE:
+        return lambda x: 1.0 - np.prod([1 - p for p in x])
     else:
         raise ValueError("Unsupported risk function")
 
@@ -33,46 +31,49 @@ def gathering_probability(node: int, paths: list[NetworkPath], collaboration_mat
     """
     P_A -> probability that node A gathers all parts (collaboration)
     """
-    collab = np.array(collaboration_matrix)
     reduced_paths = list(filter(lambda path: node not in path, paths))
-    return np.prod([1.0 - np.prod([1 - collab[node, j] for j in path[1:-1]]) for path in reduced_paths])
+    m, k = len(paths), len(reduced_paths)
+    power_factor = k / m
+
+    # if a node lies on all paths, then it doesn't need to "gather" collaboratively
+    if power_factor == 1:
+        return 1.0
+
+    collab = np.array(collaboration_matrix)
+    return np.prod(
+        [(1.0 - np.prod([1 - collab[node, j] for j in path[1:-1]])) ** power_factor for path in reduced_paths]
+    )
 
 
 @cache
 def path_breaking_probability(
-    path: NetworkPath,
+    # path: NetworkPath,
     paths: tuple[NetworkPath],
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64, ...]],
     risk_fn: RiskFunction,
 ) -> float | np.float64:
     return risk_function(risk_fn)(
-        [curiosity_matrix[node] * (gathering_probability(node, paths, collaboration_matrix)) for node in path[1:-1]]
+        [
+            curiosity_matrix[node] * gathering_probability(node, paths, collaboration_matrix)
+            for node in range(1, len(curiosity_matrix) - 1)
+        ]
     )
 
 
 @cache
-def compute_mean_q_values(
+def compute_q_values(
     chosen_paths: tuple[NetworkPath, ...],
-    m: int,
-    norm_factor: int,
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64]],
     risk_fn: RiskFunction,
 ) -> npt.NDArray[np.float64]:
-    mean_q_values = np.zeros(m)
-    for _ in range(norm_factor):
-        for path_no, path in enumerate(chosen_paths):
-            pbp = path_breaking_probability(
-                path,
-                chosen_paths[:path_no] + chosen_paths[path_no + 1 :],
-                curiosity_matrix,
-                collaboration_matrix,
-                risk_fn,
-            )
-            # print(pbp)
-            mean_q_values[path_no] += pbp
-    return mean_q_values / norm_factor
+    return np.array(
+        [
+            path_breaking_probability(chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn)
+            for _ in range(len(chosen_paths))
+        ]
+    )
 
 
 @cache
@@ -80,28 +81,32 @@ def optimality(
     paths: tuple[NetworkPath],
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64, ...]],
-    risk_fn: RiskFunction = RiskFunction.MAX,
+    risk_fn: RiskFunction = RiskFunction.MOST_RISKY_NODE,
 ) -> tuple[int, tuple[NetworkPath, ...]]:
     optimal_parts = 1
     optimal_paths: tuple[NetworkPath, ...] = (paths[0],)
 
-    max_q_value = sys.maxsize if risk_fn == RiskFunction.SUM else 1
-    norm_factor = int(1 * len(paths))
+    max_q_value = 1.0
+    tested_combinations = 0
 
     for m in range(2, len(paths) + 1):
+        mean_q_values = np.zeros(m)
+        norm_factor = ceil(0.25 * comb(len(paths), m))
         path_combinations = combinations(paths, m)
         for chosen_paths in path_combinations:
-            mean_q_values = compute_mean_q_values(
-                chosen_paths, m, norm_factor, curiosity_matrix, collaboration_matrix, risk_fn
-            )
-            mq = np.max(mean_q_values)
-            if mq >= max_q_value:
-                return optimal_parts, optimal_paths
+            q_values = compute_q_values(chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn)
+            mean_q_values += q_values
+            tested_combinations += 1
+            if tested_combinations >= norm_factor:
+                mean_q_values /= norm_factor
+                break
 
-            max_q_value = max(mean_q_values)
-            optimal_parts = m
-            optimal_paths = chosen_paths
+        mq = np.max(mean_q_values)
+        if mq >= max_q_value:
+            return optimal_parts, optimal_paths
 
-            break
+        max_q_value = mq
+        optimal_parts = m
+        optimal_paths = chosen_paths
 
     return optimal_parts, optimal_paths

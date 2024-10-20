@@ -1,5 +1,5 @@
 #sim.py --num-nodes 10 --new-graph --num-runs 10 --bin-size 0.1 --vary both
-# GMT Fri Oct 18 13:40:26 2024
+# GMT Sun Oct 20 05:52:03 2024
 # 
 0 1 5 2
 1 2 6 3

@@ -72,6 +72,6 @@ df["bins"] = df["bins"].apply(lambda x: eval(x))
 group_df = df.groupby("graph_size")
 
 for n, group in group_df:
-    draw_heatmap(group, f"Graph Size: {n} nodes")
+    draw_3d_scatter(group, f"Graph Size: {n} nodes")
 
 plt.show()
