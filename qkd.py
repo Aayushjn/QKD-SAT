@@ -57,24 +57,23 @@ def node_secret_breaking_probability(
 @cache
 def compute_q_values(
     chosen_paths: tuple[NetworkPath, ...],
-    m: int,
-    norm_factor: int,
+    # m: int,
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64]],
     risk_fn: RiskFunction,
 ) -> npt.NDArray[np.float64]:
-    q_values = np.zeros(m, dtype=np.float64)
-    for path_no, path in enumerate(chosen_paths):
-        pbp = node_secret_breaking_probability(
-            # path,
-            chosen_paths,
-            curiosity_matrix,
-            collaboration_matrix,
-            risk_fn,
-        )
+    # q_values = np.zeros(m, dtype=np.float64)
+    # for path_no, path in enumerate(chosen_paths):
+    sbp = node_secret_breaking_probability(
+        # path,
+        chosen_paths,
+        curiosity_matrix,
+        collaboration_matrix,
+        risk_fn,
+    )
         # print(pbp)
-        q_values[path_no] += pbp
-    return q_values
+        # q_values[path_no] += pbp
+    return sbp
 
 
 @cache
@@ -91,30 +90,31 @@ def optimality(
     
 
     for m in range(2, len(paths) + 1):
-        mean_q_values = np.zeros(m, dtype=np.float64)
+        # mean_q_values = np.zeros(m, dtype=np.float64)
+        mean_sbp = 0.0
         path_combinations = combinations(paths, m)
         num_combinations = math.comb(len(paths), m)
         norm_factor = int(math.ceil(0.10 * num_combinations))
         tested_combinations = 0
         for chosen_paths in path_combinations:
-            q_values = compute_q_values(
-                chosen_paths, m, norm_factor, curiosity_matrix, collaboration_matrix, risk_fn
+            sbp = compute_q_values(
+                chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn
             )
 
             tested_combinations += 1
             if tested_combinations > norm_factor:
                 
-                mean_q_values /= norm_factor
-                mq = np.max(mean_q_values)
-                if mq >= max_q_value:
+                mean_sbp /= norm_factor
+                # mq = np.max(mean_q_values)
+                if mean_sbp >= max_q_value:
                     return optimal_parts, optimal_paths
 
-                max_q_value = mq
+                max_q_value = mean_sbp
                 optimal_parts = m
                 optimal_paths = chosen_paths
                 break
             else:
-                mean_q_values += q_values
+                mean_sbp += sbp
 
             
 

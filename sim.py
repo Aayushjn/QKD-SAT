@@ -92,7 +92,7 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
             ng.simple_paths,
             tuple(ng.curiosity_matrix),
             tuple(tuple(row) for row in ng.collaboration_matrix),
-            RiskFunction.ATLEAST_ONE_NODE_BREAKS_SECRET,
+            RiskFunction.MOST_RISKY_NODE_BREAKS_SECRET,
         )
 
         bin_total += opt[0]
