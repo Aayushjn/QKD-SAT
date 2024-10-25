@@ -57,7 +57,7 @@ print(net_graph)
 
 
 def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
-    i, j = idx
+    i, j = idx  # i for curiosity, j for collaboration
 
     bin_total = 0
     for _ in range(args.num_runs):
@@ -67,17 +67,22 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
                 curiosity_matrix=random_curiosity_matrix(
                     num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
                 ),
-                collaboration_matrix=net_graph.collaboration_matrix,
+                collaboration_matrix=random_collaboration_matrix(
+                    num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
+                ),  # Collaboration is now also controlled
             )
         elif args.vary == "collaboration":
             ng = Network(
                 net_graph,
-                curiosity_matrix=net_graph.curiosity_matrix,
+                curiosity_matrix=random_curiosity_matrix(
+                    num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
+                ),  # Curiosity is now also controlled
                 collaboration_matrix=random_collaboration_matrix(
                     num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
-                ),
+                )
             )
         else:
+            # Keep the 'both' case the same as before
             ng = Network(
                 net_graph,
                 curiosity_matrix=random_curiosity_matrix(
@@ -88,17 +93,18 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
                 ),
             )
 
+        # Optimality calculation (remains unchanged)
         opt = optimality(
             ng.simple_paths,
             tuple(ng.curiosity_matrix),
             tuple(tuple(row) for row in ng.collaboration_matrix),
-            RiskFunction.MOST_RISKY_NODE_BREAKS_SECRET,
+            RiskFunction.ATLEAST_ONE_NODE_BREAKS_SECRET,
         )
 
         bin_total += opt[0]
-        # print(f"======== {idx} ======== {opt}")
 
     return idx, ceil(bin_total / args.num_runs)
+
 
 
 def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
@@ -117,9 +123,11 @@ def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
 
 
 if args.vary == "curiosity":
-    simulations = [(i, -1) for i in range(num_bins) if (i, -1) not in completed_idx]
+    simulations = [(i, j) for j in range(num_bins) for i in range(num_bins) if (i, j) not in completed_idx]
+
 elif args.vary == "collaboration":
-    simulations = [(-1, j) for j in range(num_bins) if (-1, j) not in completed_idx]
+    simulations = [(i, j) for i in range(num_bins) for j in range(num_bins) if (i, j) not in completed_idx]
+
 else:
     simulations = [(i, j) for i, j in product(range(num_bins), repeat=2) if (i, j) not in completed_idx]
 
