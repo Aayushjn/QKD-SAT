@@ -1,7 +1,7 @@
-#sim.py --num-nodes 9 --new-graph --num-runs 10 --bin-size 0.2 --vary collaboration
-# GMT Fri Oct 25 07:38:39 2024
+#sim.py --num-nodes 9 --new-graph --num-runs 10 --bin-size 0.1 --vary both
+# GMT Fri Oct 25 13:22:40 2024
 # 
-0 1 4 5
+0 1 4
 1 2 5
 2 3 6
 3 4 7

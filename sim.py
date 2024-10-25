@@ -1,11 +1,8 @@
 import sys
 from argparse import ArgumentParser
-from concurrent.futures import as_completed
-from concurrent.futures import ProcessPoolExecutor
 from itertools import product
 from math import ceil
 from math import floor
-from os import cpu_count
 from pathlib import Path
 
 import networkx as nx
@@ -79,7 +76,7 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
                 ),  # Curiosity is now also controlled
                 collaboration_matrix=random_collaboration_matrix(
                     num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
-                )
+                ),
             )
         else:
             # Keep the 'both' case the same as before
@@ -101,22 +98,21 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
             RiskFunction.ATLEAST_ONE_NODE_BREAKS_SECRET,
         )
 
-        bin_total += opt[0]
+        bin_total += opt
 
     return idx, ceil(bin_total / args.num_runs)
-
 
 
 def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
     results = []
 
-    with ProcessPoolExecutor(max_workers=(cpu_count() or 2) - 1) as executor:
-        futures = [executor.submit(run_simulation, idx) for idx in simulations]
-        for future in tqdm(as_completed(futures), total=len(futures), dynamic_ncols=True):
-            results.append(future.result())
-            if len(results) >= batch_size:
-                yield results
-                results = []
+    # with ProcessPoolExecutor(max_workers=(cpu_count() or 2) - 1) as executor:
+    # futures = [executor.submit(run_simulation, idx) for idx in simulations]
+    for idx in simulations:
+        results.append(run_simulation(idx))
+        if len(results) >= batch_size:
+            yield results
+            results = []
 
     if results:
         yield results
