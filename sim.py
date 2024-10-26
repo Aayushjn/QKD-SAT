@@ -8,7 +8,6 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from network import Network
 from qkd import optimality

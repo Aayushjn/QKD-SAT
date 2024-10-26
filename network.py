@@ -26,6 +26,12 @@ class NetworkPath(tuple):
     def __repr__(self):
         return f"({super().__repr__()}, weight={self.weight})"
 
+    def __eq__(self, other):
+        return super().__eq__(other) and self.weight == other.weight
+
+    def __hash__(self):
+        return hash((super().__hash__(), self.weight))
+
 
 class Network(nx.Graph):
     simple_paths: tuple[NetworkPath]
@@ -47,6 +53,9 @@ class Network(nx.Graph):
 
         self.curiosity_matrix = curiosity_matrix
         self.collaboration_matrix = collaboration_matrix
+
+        self.edge_weight = cache(self._edge_weight)
+        self.path_weight = cache(self._path_weight)
 
         nx.set_edge_attributes(graph, {e: self.edge_weight(e) for e in graph.edges}, "weight")
         self.determine_simple_paths()
@@ -72,14 +81,12 @@ class Network(nx.Graph):
             1.0 - np.prod([1 - self.collaboration_matrix[node, j] for j in range(1, self.number_of_nodes() - 1)])
         )
 
-    @cache
-    def edge_weight(self, edge: tuple[int, int]) -> float:
+    def _edge_weight(self, edge: tuple[int, int]) -> float:
         if edge[1] == self.number_of_nodes() - 1:
             return 0.0
         return self.curiosity_matrix[edge[1]] * np.mean(np.delete(self.collaboration_matrix[edge[1]], edge[1]))
 
-    @cache
-    def path_weight(self, path: tuple[int, ...]) -> float:
+    def _path_weight(self, path: tuple[int, ...]) -> float:
         return np.sum([self.edge_weight(edge) for edge in pairwise(path)]) / (len(path) - 1)
 
     def to_dir(self, path: Path):
@@ -92,6 +99,24 @@ class Network(nx.Graph):
             return super().__str__()
 
         return f"{super().__str__()} with {len(self.simple_paths)} paths"
+
+    def __eq__(self, other):
+        return (
+            super().__eq__(other)
+            and self.simple_paths == other.simple_paths
+            and np.array_equal(self.collaboration_matrix, other.collaboration_matrix)
+            and np.array_equal(self.curiosity_matrix, other.curiosity_matrix)
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                super().__hash__(),
+                self.simple_paths,
+                self.collaboration_matrix.tobytes(),
+                self.curiosity_matrix.tobytes(),
+            )
+        )
 
     @classmethod
     def from_dir(cls, path: Path) -> "Network":

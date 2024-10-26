@@ -12,7 +12,6 @@ from typing import Collection
 import numpy as np
 from tqdm import tqdm
 from tqdm import trange
-from tqdm.contrib.concurrent import process_map
 
 from network import NetworkPath
 
@@ -71,7 +70,6 @@ def optimality(
     risk_fn: RiskFunction = RiskFunction.MOST_RISKY_NODE_BREAKS_SECRET,
 ) -> int:
     optimal_parts = 1
-    optimal_paths: tuple[NetworkPath, ...] = (paths[0],)
 
     max_q_value = 1.0
 
@@ -83,35 +81,23 @@ def optimality(
             sample_size = math.ceil(0.10 * num_combinations)
             sampled_combinations = islice(path_combinations, sample_size)
 
-            # mean_sbp = np.mean(executor.map(node_secret_breaking_probability, ((chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn) for chosen_paths in sampled_combinations), chunksize=round(sample_size / num_workers)))
             futures = (
                 executor.submit(
                     node_secret_breaking_probability, chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn
                 )
                 for chosen_paths in sampled_combinations
             )
-            mean_sbp = np.mean(
-                np.fromiter(
-                    (
-                        future.result()
-                        for future in tqdm(
-                            as_completed(futures),
-                            desc="Testing paths",
-                            total=sample_size,
-                            unit="paths",
-                            leave=False,
-                            dynamic_ncols=True,
-                        )
-                    ),
-                    np.float64,
-                )
-            )
-            # mean_sbp = 0.0
-            # for future in tqdm(as_completed(futures), total=len(futures), dynamic_ncols=True):
-            #     mean_sbp += future.result()
-            # for chosen_paths in sampled_combinations:
-            #     mean_sbp += node_secret_breaking_probability(chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn)
-            # mean_sbp /= sample_size
+            mean_sbp = 0.0
+            for future in tqdm(
+                as_completed(futures),
+                desc="Testing paths",
+                total=sample_size,
+                unit="paths",
+                leave=False,
+                dynamic_ncols=True,
+            ):
+                mean_sbp += future.result()
+            mean_sbp /= sample_size
 
             if mean_sbp >= max_q_value:
                 return optimal_parts

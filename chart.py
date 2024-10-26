@@ -8,11 +8,11 @@ from scipy.interpolate import griddata
 
 
 def draw_3d_scatter(dataframe: pd.DataFrame, window_title: str):
-    X, Y = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
-    Z = dataframe["optimal_parts"]
+    x_data, y_data = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
+    z_data = dataframe["optimal_parts"]
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    scatter = ax.scatter(X, Y, Z, marker="o", c=group["optimal_parts"], cmap=cm.coolwarm)
+    scatter = ax.scatter(x_data, y_data, z_data, marker="o", c=group["optimal_parts"], cmap=cm.coolwarm)
     ax.invert_xaxis()
     ax.set_xlabel("curiosity")
     ax.set_ylabel("collaboration")
@@ -25,12 +25,12 @@ def draw_3d_scatter(dataframe: pd.DataFrame, window_title: str):
 
 
 def draw_3d_surface(dataframe: pd.DataFrame, window_title: str):
-    X, Y = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
-    Z = np.array(dataframe["optimal_parts"])
-    points = np.array([X, Y]).T
+    x_data, y_data = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
+    z_data = np.array(dataframe["optimal_parts"])
+    points = np.array([x_data, y_data]).T
 
-    x_grid, y_grid = np.mgrid[0 : X.max() : 80j, 0 : Y.max() : 80j]
-    z_grid = griddata(points, Z, (x_grid, y_grid), method="cubic")
+    x_grid, y_grid = np.mgrid[0 : x_data.max() : 80j, 0 : y_data.max() : 80j]
+    z_grid = griddata(points, z_data, (x_grid, y_grid), method="cubic")
 
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     surf = ax.plot_surface(x_grid, y_grid, z_grid, cmap=cm.summer, linewidth=0, antialiased=True)
@@ -46,21 +46,20 @@ def draw_3d_surface(dataframe: pd.DataFrame, window_title: str):
 
 
 def draw_heatmap(dataframe: pd.DataFrame, window_title: str):
-    X, Y = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
-    Z = np.array(dataframe["optimal_parts"]).reshape(np.full(2, int(sqrt(len(X)))))
+    x_data, y_data = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
+    z_data = np.array(dataframe["optimal_parts"]).reshape(np.full(2, int(sqrt(len(x_data)))))
 
     fig, ax = plt.subplots()
-    im = ax.imshow(Z, cmap=cm.summer, interpolation="gaussian", vmin=Z.min(), vmax=Z.max(), origin="lower")
+    im = ax.imshow(
+        z_data, cmap=cm.summer, interpolation="gaussian", vmin=z_data.min(), vmax=z_data.max(), origin="lower"
+    )
 
     ax.set_xlabel("curiosity")
     ax.set_ylabel("collaboration")
-    # ax.set_xticks(np.arange(X.max() + 1), labels=X.unique())
-    # ax.set_yticks(np.arange(Y.max() + 1), labels=Y.unique())
-    # plt.setp(ax.get_xticklabels(), ha="right")
 
-    for i in range(X.max() + 1):
-        for j in range(Y.max() + 1):
-            ax.text(i, j, Z[i, j], ha="center", va="center")
+    for i in range(x_data.max() + 1):
+        for j in range(y_data.max() + 1):
+            ax.text(i, j, z_data[i, j], ha="center", va="center")
 
     fig.colorbar(im, shrink=0.5, aspect=5)
 

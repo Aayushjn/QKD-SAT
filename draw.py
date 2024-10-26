@@ -46,9 +46,9 @@ def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_ti
         pos=pos,
         ax=axes[1],
         edgelist=edge_list,
-        edge_color=tuple(map(lambda t: cmap(norm(net_graph.collaboration_matrix[t[0]][t[1]])), edge_list)),
-        width=tuple(map(lambda t: net_graph.collaboration_matrix[t[0]][t[1]] * 8, edge_list)),
-        alpha=tuple(map(lambda t: net_graph.collaboration_matrix[t[0]][t[1]], edge_list)),
+        edge_color=tuple(cmap(norm(net_graph.collaboration_matrix[t[0]][t[1]])) for t in edge_list),
+        width=tuple(net_graph.collaboration_matrix[t[0]][t[1]] * 8 for t in edge_list),
+        alpha=tuple(net_graph.collaboration_matrix[t[0]][t[1]] for t in edge_list),
     )
     nx.draw_networkx_labels(
         net_graph,
