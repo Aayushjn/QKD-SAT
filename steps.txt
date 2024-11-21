@@ -1,0 +1,58 @@
+>>> curiosities = [df[df["curiosity"]==i]["optimal_parts"].values for i in range(10)]
+>>> curiosities
+[array([11,  9,  9,  7,  4,  5,  5,  3,  6,  7]), array([12,  8,  4,  2,  2,  2,  2,  2,  2,  2]), array([11, 15,  3,  2,  2,  2,  2,  2,  2,  2]), array([11, 13,  3,  2,  2,  2,  2,  2,  2,  2]), array([11, 15,  2,  2,  2,  2,  2,  2,  2,  2]), array([18, 17,  5,  2,  2,  2,  2,  2,  2,  2]), array([14, 17,  5,  2,  2,  2,  2,  2,  2,  2]), array([16, 18,  8,  2,  2,  2,  2,  2,  2,  2]), array([17, 17,  8,  2,  2,  2,  2,  2,  2,  2]), array([15, 17, 15,  6,  2,  3,  2,  2,  2,  2])]
+>>> collaborations = [df[df["collaboration"]==i]["optimal_parts"].values for i in range(10)]
+>>> collab
+collaboration
+0    13.6
+1    14.6
+2     6.2
+3     2.9
+4     2.2
+5     2.4
+6     2.3
+7     2.1
+8     2.4
+9     2.5
+Name: optimal_parts, dtype: float64
+>>> collaborations
+[array([11, 12, 11, 11, 11, 18, 14, 16, 17, 15]), array([ 9,  8, 15, 13, 15, 17, 17, 18, 17, 17]), array([ 9,  4,  3,  3,  2,  5,  5,  8,  8, 15]), array([7, 2, 2, 2, 2, 2, 2, 2, 2, 6]), array([4, 2, 2, 2, 2, 2, 2, 2, 2, 2]), array([5, 2, 2, 2, 2, 2, 2, 2, 2, 3]), array([5, 2, 2, 2, 2, 2, 2, 2, 2, 2]), array([3, 2, 2, 2, 2, 2, 2, 2, 2, 2]), array([6, 2, 2, 2, 2, 2, 2, 2, 2, 2]), array([7, 2, 2, 2, 2, 2, 2, 2, 2, 2])]
+>>> from scipy.stats import f_oneway
+>>> f_oneway(*curiosities)
+F_onewayResult(statistic=np.float64(0.3741998217324369), pvalue=np.float64(0.9446208768608494))
+>>> f_oneway(*collaborations)
+F_onewayResult(statistic=np.float64(52.574780058651235), pvalue=np.float64(4.989988538314304e-32))
+>>> f_oneway(curiosities, collaborations)
+F_onewayResult(statistic=array([35.33653846, 47.71636364,  0.96782842,  0.67570386,  1.75438596,
+        2.11598746,  2.21580547,  3.06846646,  2.48543689,  3.87029931]), pvalue=array([1.26303121e-05, 1.85480343e-06, 3.38262053e-01, 4.21825657e-01,
+       2.01898313e-01, 1.62984924e-01, 1.53914954e-01, 9.68446817e-02,
+       1.32316708e-01, 6.47543157e-02]))
+>>> f_oneway(collaborations, curiosities)
+F_onewayResult(statistic=array([35.33653846, 47.71636364,  0.96782842,  0.67570386,  1.75438596,
+        2.11598746,  2.21580547,  3.06846646,  2.48543689,  3.87029931]), pvalue=array([1.26303121e-05, 1.85480343e-06, 3.38262053e-01, 4.21825657e-01,
+       2.01898313e-01, 1.62984924e-01, 1.53914954e-01, 9.68446817e-02,
+       1.32316708e-01, 6.47543157e-02]))
+>>> f_oneway(collaborations, curiosities, axis=0)
+F_onewayResult(statistic=array([35.33653846, 47.71636364,  0.96782842,  0.67570386,  1.75438596,
+        2.11598746,  2.21580547,  3.06846646,  2.48543689,  3.87029931]), pvalue=array([1.26303121e-05, 1.85480343e-06, 3.38262053e-01, 4.21825657e-01,
+       2.01898313e-01, 1.62984924e-01, 1.53914954e-01, 9.68446817e-02,
+       1.32316708e-01, 6.47543157e-02]))
+>>> f_oneway(collaborations, curiosities, axis=1)
+F_onewayResult(statistic=array([35.33653846, 47.71636364,  0.96782842,  0.67570386,  1.75438596,
+        2.11598746,  2.21580547,  3.06846646,  2.48543689,  3.87029931]), pvalue=array([1.26303121e-05, 1.85480343e-06, 3.38262053e-01, 4.21825657e-01,
+       2.01898313e-01, 1.62984924e-01, 1.53914954e-01, 9.68446817e-02,
+       1.32316708e-01, 6.47543157e-02]))
+>>> f_oneway(*curiosities)
+F_onewayResult(statistic=np.float64(0.3741998217324369), pvalue=np.float64(0.9446208768608494))
+>>> f_oneway(*collaborations)
+F_onewayResult(statistic=np.float64(52.574780058651235), pvalue=np.float64(4.989988538314304e-32))
+>>> from scipy.stats import kruskal, alexandergovern
+>>> kruskal(*curiosities)
+KruskalResult(statistic=np.float64(11.8593993851974), pvalue=np.float64(0.22135227372126476))
+>>> kruskal(*collaborations)
+KruskalResult(statistic=np.float64(75.77842515961221), pvalue=np.float64(1.1090956777676053e-12))
+>>> alexandergovern(*curiosities)
+AlexanderGovernResult(statistic=np.float64(5.89697291467053), pvalue=np.float64(0.7501837879062787))
+>>> alexandergovern(*collaborations)
+AlexanderGovernResult(statistic=np.float64(60.8723272042004), pvalue=np.float64(9.100842865839003e-10))
+>>> 

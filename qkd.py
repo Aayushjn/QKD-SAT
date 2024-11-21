@@ -1,11 +1,14 @@
 import enum
 import math
+import sys
 from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from functools import cache
 from itertools import combinations
 from itertools import islice
 from multiprocessing import cpu_count
+from multiprocessing import Value
 from typing import Callable
 from typing import Collection
 
@@ -14,6 +17,13 @@ from tqdm import tqdm
 from tqdm import trange
 
 from network import NetworkPath
+
+
+@dataclass
+class OptimalResult:
+    shares: int
+    paths: tuple[NetworkPath, ...]
+    breaking_probability: np.float64
 
 
 class RiskFunction(enum.Enum):
@@ -68,41 +78,43 @@ def optimality(
     curiosity_matrix: tuple[np.float64],
     collaboration_matrix: tuple[tuple[np.float64, ...]],
     risk_fn: RiskFunction = RiskFunction.MOST_RISKY_NODE_BREAKS_SECRET,
-) -> int:
-    optimal_parts = 1
-
-    max_q_value = 1.0
+) -> OptimalResult:
+    optimal_parts = 0
+    optimal_paths = tuple()
+    max_q_value = Value("d", sys.maxsize)
 
     num_workers = (cpu_count() or 2) - 1
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         for m in trange(2, len(paths) + 1, desc="Optimizing", leave=False, unit="parts", dynamic_ncols=True):
+            optimized = False
             path_combinations = combinations(paths, m)
             num_combinations = math.comb(len(paths), m)
-            sample_size = math.ceil(0.10 * num_combinations)
-            sampled_combinations = islice(path_combinations, sample_size)
+            # sample_size = math.ceil(0.10 * num_combinations)
+            # sampled_combinations = islice(path_combinations, sample_size)
 
-            futures = (
+            futures = {
                 executor.submit(
                     node_secret_breaking_probability, chosen_paths, curiosity_matrix, collaboration_matrix, risk_fn
-                )
-                for chosen_paths in sampled_combinations
-            )
-            mean_sbp = 0.0
+                ): chosen_paths
+                for chosen_paths in path_combinations
+            }
             for future in tqdm(
-                as_completed(futures),
+                as_completed(futures.keys()),
                 desc="Testing paths",
-                total=sample_size,
+                total=num_combinations,
                 unit="paths",
                 leave=False,
                 dynamic_ncols=True,
             ):
-                mean_sbp += future.result()
-            mean_sbp /= sample_size
+                with max_q_value.get_lock():
+                    if (res := future.result()) < max_q_value.value:
+                        max_q_value.value = res
+                        optimized = True
+                        optimal_paths = tuple(futures[future])
 
-            if mean_sbp >= max_q_value:
-                return optimal_parts
+            if not optimized:
+                return OptimalResult(shares=optimal_parts, paths=optimal_paths, breaking_probability=max_q_value.value)
 
-            max_q_value = mean_sbp
             optimal_parts = m
 
-        return optimal_parts
+        return OptimalResult(shares=0, paths=(), breaking_probability=np.float64(0.0))

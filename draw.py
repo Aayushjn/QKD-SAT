@@ -5,14 +5,14 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from network import Network
+from network import ProbabilisticNetwork
 
 
-def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_title: str = "Figure"):
-    fig, axes = plt.subplots(nrows=1, ncols=2)
+def draw_network_graph(net_graph: ProbabilisticNetwork, pos: Mapping | None = None, window_title: str = "Figure"):
+    fig, axes = plt.subplots()
 
     if pos is None:
-        pos = nx.spring_layout(net_graph)
+        pos = nx.arf_layout(net_graph)
     node_color = [
         "lightgreen" if i == 0 or i == net_graph.number_of_nodes() - 1 else "lightblue" for i in net_graph.nodes
     ]
@@ -21,12 +21,14 @@ def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_ti
 
     node_size = 1000 * net_graph.curiosity_matrix
     nx.draw_networkx_nodes(
-        net_graph, pos=pos, ax=axes[0], nodelist=net_graph.nodes, node_color=node_color, node_size=node_size
+        net_graph, pos=pos, ax=axes, nodelist=net_graph.nodes, node_color=node_color, node_size=node_size
     )
-    nx.draw_networkx_edges(net_graph, pos=pos, ax=axes[0], edgelist=net_graph.edges, edge_color="gray")
-    nx.draw_networkx_labels(net_graph, pos=pos, ax=axes[0], font_size=10)
-    axes[0].set_title("Network Graph")
+    nx.draw_networkx_edges(net_graph, pos=pos, ax=axes, edgelist=net_graph.edges, edge_color="gray")
+    nx.draw_networkx_labels(net_graph, pos=pos, ax=axes, font_size=10)
+    # axes.set_title("Network Graph")
+    plt.get_current_fig_manager().set_window_title(window_title)
 
+    fig, axes = plt.subplots()
     edge_list = [
         (i, j)
         for i in range(net_graph.number_of_nodes())
@@ -36,7 +38,7 @@ def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_ti
     nx.draw_networkx_nodes(
         net_graph,
         pos=pos,
-        ax=axes[1],
+        ax=axes,
         nodelist=range(1, net_graph.number_of_nodes() - 1),
         node_color="lightblue",
         node_size=500,
@@ -44,7 +46,7 @@ def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_ti
     nx.draw_networkx_edges(
         net_graph,
         pos=pos,
-        ax=axes[1],
+        ax=axes,
         edgelist=edge_list,
         edge_color=tuple(cmap(norm(net_graph.collaboration_matrix[t[0]][t[1]])) for t in edge_list),
         width=tuple(net_graph.collaboration_matrix[t[0]][t[1]] * 8 for t in edge_list),
@@ -53,10 +55,10 @@ def draw_network_graph(net_graph: Network, pos: Mapping | None = None, window_ti
     nx.draw_networkx_labels(
         net_graph,
         pos=pos,
-        ax=axes[1],
+        ax=axes,
         labels={i: str(i) for i in range(1, net_graph.number_of_nodes() - 1)},
         font_size=10,
     )
-    axes[1].set_title("Collaboration Graph")
+    # axes.set_title("Collaboration Graph")
     fig.tight_layout()
     plt.get_current_fig_manager().set_window_title(window_title)

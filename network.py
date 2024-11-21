@@ -33,7 +33,7 @@ class NetworkPath(tuple):
         return hash((super().__hash__(), self.weight))
 
 
-class Network(nx.Graph):
+class ProbabilisticNetwork(nx.Graph):
     simple_paths: tuple[NetworkPath]
     curiosity_matrix: npt.NDArray[np.float64]
     collaboration_matrix: npt.NDArray[np.float64]
@@ -43,13 +43,14 @@ class Network(nx.Graph):
         graph: nx.Graph,
         curiosity_matrix: npt.NDArray[np.float64] | None = None,
         collaboration_matrix: npt.NDArray[np.float64] | None = None,
+        exact: bool = False,
     ):
         super().__init__(graph)
 
         if curiosity_matrix is None:
-            curiosity_matrix = random_curiosity_matrix(self.number_of_nodes())
+            curiosity_matrix = random_curiosity_matrix(self.number_of_nodes(), exact=exact)
         if collaboration_matrix is None:
-            collaboration_matrix = random_collaboration_matrix(self.number_of_nodes())
+            collaboration_matrix = random_collaboration_matrix(self.number_of_nodes(), exact=exact)
 
         self.curiosity_matrix = curiosity_matrix
         self.collaboration_matrix = collaboration_matrix
@@ -65,6 +66,7 @@ class Network(nx.Graph):
             NetworkPath(path, weight=round(self.path_weight(tuple(path)), 5))
             for path in nx.all_simple_paths(self, 0, self.number_of_nodes() - 1)
         ]
+        # print(self._path_weight((0, 2, 1, 7, 9)))
         reduced_paths.sort(key=lambda path: path.weight)
 
         last_path = reduced_paths[0]
@@ -84,7 +86,7 @@ class Network(nx.Graph):
     def _edge_weight(self, edge: tuple[int, int]) -> float:
         if edge[1] == self.number_of_nodes() - 1:
             return 0.0
-        return self.curiosity_matrix[edge[1]] * np.mean(np.delete(self.collaboration_matrix[edge[1]], edge[1]))
+        return self.curiosity_matrix[edge[1]] * np.mean(self.collaboration_matrix[edge[1]])
 
     def _path_weight(self, path: tuple[int, ...]) -> float:
         return np.sum([self.edge_weight(edge) for edge in pairwise(path)]) / (len(path) - 1)
@@ -119,7 +121,7 @@ class Network(nx.Graph):
         )
 
     @classmethod
-    def from_dir(cls, path: Path) -> "Network":
+    def from_dir(cls, path: Path) -> "ProbabilisticNetwork":
         graph = nx.read_adjlist(path.joinpath("graph.txt"))
         graph = nx.relabel_nodes(graph, {node: int(node) for node in graph.nodes})
         curiosity = np.load(path.joinpath("curiosity.npy"))
@@ -127,7 +129,7 @@ class Network(nx.Graph):
         return cls(graph, curiosity, collaboration)
 
     @classmethod
-    def random(cls, num_nodes: int) -> "Network":
+    def random(cls, num_nodes: int) -> "ProbabilisticNetwork":
         graph = nx.generators.harary_graph.hnm_harary_graph(
             num_nodes, random.randrange(int(1.5 * num_nodes), 2 * num_nodes)
         )
@@ -144,3 +146,30 @@ class Network(nx.Graph):
         assert nx.has_path(graph, 0, graph.number_of_nodes() - 1)
 
         return cls(graph)
+
+
+class DeterministicNetwork(ProbabilisticNetwork):
+    @classmethod
+    def from_dir(cls, path: Path) -> "DeterministicNetwork":
+        graph = nx.read_adjlist(path.joinpath("graph.txt"))
+        graph = nx.relabel_nodes(graph, {node: int(node) for node in graph.nodes})
+        return cls(graph, exact=True)
+
+    @classmethod
+    def random(cls, num_nodes: int) -> "DeterministicNetwork":
+        graph = nx.generators.harary_graph.hnm_harary_graph(
+            num_nodes, random.randrange(int(1.5 * num_nodes), 2 * num_nodes)
+        )
+
+        if graph.has_edge(0, num_nodes - 1):
+            graph.remove_edge(0, num_nodes - 1)
+            # Ensure the graph remains connected after removing the edge
+            if not nx.has_path(graph, 0, num_nodes - 1):
+                intermediate = random.randint(1, num_nodes - 2)
+                graph.add_edge(0, intermediate)
+                graph.add_edge(intermediate, num_nodes - 1)
+
+        assert nx.is_connected(graph)
+        assert nx.has_path(graph, 0, graph.number_of_nodes() - 1)
+
+        return cls(graph, exact=True)

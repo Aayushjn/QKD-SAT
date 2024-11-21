@@ -4,19 +4,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from draw import draw_network_graph
-from network import Network
+from network import ProbabilisticNetwork
 
 np.set_printoptions(linewidth=120)
 
-graph_dir = Path.cwd().joinpath("graphs")
+graph_dir = Path.cwd().joinpath("graphs").joinpath("n9")
 
-for path in graph_dir.iterdir():
-    if path.is_dir():
-        net_graph = Network.from_dir(path)
+# for path in graph_dir.iterdir():
+# if path.is_dir():
+net_graph = ProbabilisticNetwork.from_dir(graph_dir)
 
-        print(net_graph, len(net_graph.simple_paths))
+print(net_graph)
 
-        draw_network_graph(net_graph, window_title=path.name)
+draw_network_graph(net_graph, window_title="n9")
 
 plt.show()
 

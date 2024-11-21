@@ -9,7 +9,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from network import Network
+from network import ProbabilisticNetwork
 from qkd import optimality
 from qkd import RiskFunction
 from rng import random_collaboration_matrix
@@ -21,7 +21,6 @@ parser.add_argument("--num-nodes", default=10, type=int)
 parser.add_argument("--new-graph", default=False, action="store_true")
 parser.add_argument("--num-runs", default=10, type=int)
 parser.add_argument("--bin-size", default=0.2, type=float)
-parser.add_argument("--vary", required=True, choices=("both", "curiosity", "collaboration"))
 
 args = parser.parse_args(sys.argv[1:])
 
@@ -32,14 +31,14 @@ graph_dir.mkdir(parents=True, exist_ok=True)
 
 res_path = Path.cwd().joinpath("results")
 res_path.mkdir(parents=True, exist_ok=True)
-outfile = res_path.joinpath(f"{args.vary}.csv")
+outfile = res_path.joinpath("results.csv")
 
 if args.new_graph:
-    net_graph = Network.random(args.num_nodes)
+    net_graph = ProbabilisticNetwork.random(args.num_nodes)
     net_graph.to_dir(graph_dir)
     completed_idx = set()
 else:
-    net_graph = Network.from_dir(graph_dir)
+    net_graph = ProbabilisticNetwork.from_dir(graph_dir)
     if not outfile.exists() or outfile.stat().st_size == 0:
         completed_idx = set()
     else:
@@ -52,42 +51,21 @@ pos = nx.spring_layout(net_graph)
 print(net_graph)
 
 
-def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
+def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int, np.float64]:
     i, j = idx  # i for curiosity, j for collaboration
 
     bin_total = 0
+    breaking_prob = 0.0
     for _ in range(args.num_runs):
-        if args.vary == "curiosity":
-            ng = Network(
-                net_graph,
-                curiosity_matrix=random_curiosity_matrix(
-                    num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
-                ),
-                collaboration_matrix=random_collaboration_matrix(
-                    num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
-                ),  # Collaboration is now also controlled
-            )
-        elif args.vary == "collaboration":
-            ng = Network(
-                net_graph,
-                curiosity_matrix=random_curiosity_matrix(
-                    num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
-                ),  # Curiosity is now also controlled
-                collaboration_matrix=random_collaboration_matrix(
-                    num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
-                ),
-            )
-        else:
-            # Keep the 'both' case the same as before
-            ng = Network(
-                net_graph,
-                curiosity_matrix=random_curiosity_matrix(
-                    num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
-                ),
-                collaboration_matrix=random_collaboration_matrix(
-                    num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
-                ),
-            )
+        ng = ProbabilisticNetwork(
+            net_graph,
+            curiosity_matrix=random_curiosity_matrix(
+                num_nodes, low=i * args.bin_size, high=(i * args.bin_size) + args.bin_size
+            ),
+            collaboration_matrix=random_collaboration_matrix(
+                num_nodes, low=j * args.bin_size, high=(j * args.bin_size) + args.bin_size
+            ),
+        )
 
         # Optimality calculation (remains unchanged)
         opt = optimality(
@@ -97,9 +75,10 @@ def run_simulation(idx: tuple[int, int]) -> tuple[tuple[int, int], int]:
             RiskFunction.ATLEAST_ONE_NODE_BREAKS_SECRET,
         )
 
-        bin_total += opt
+        bin_total += opt.shares
+        breaking_prob += opt.breaking_probability
 
-    return idx, ceil(bin_total / args.num_runs)
+    return idx, ceil(bin_total / args.num_runs), breaking_prob / args.num_runs
 
 
 def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
@@ -117,18 +96,10 @@ def batch_simulation(simulations: list[tuple[int, int]], batch_size: int = 10):
         yield results
 
 
-if args.vary == "curiosity":
-    simulations = [(i, j) for j in range(num_bins) for i in range(num_bins) if (i, j) not in completed_idx]
-
-elif args.vary == "collaboration":
-    simulations = [(i, j) for i in range(num_bins) for j in range(num_bins) if (i, j) not in completed_idx]
-
-else:
-    simulations = [(i, j) for i, j in product(range(num_bins), repeat=2) if (i, j) not in completed_idx]
-
+simulations = [(i, j) for i, j in product(range(num_bins), repeat=2) if (i, j) not in completed_idx]
 
 for batch in batch_simulation(simulations):
-    df = pd.DataFrame.from_records(batch, columns=["bins", "optimal_parts"])
+    df = pd.DataFrame.from_records(batch, columns=["bins", "optimal_parts", "breaking_probability"])
     df["graph_size"] = [num_nodes] * len(df)
-    df = df[["graph_size", "bins", "optimal_parts"]]
+    df = df[["graph_size", "bins", "optimal_parts", "breaking_probability"]]
     df.to_csv(str(outfile), mode="a+", header=not outfile.exists() or outfile.stat().st_size == 0, index=False)

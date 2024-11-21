@@ -25,22 +25,23 @@ def draw_3d_scatter(dataframe: pd.DataFrame, window_title: str):
 
 
 def draw_3d_surface(dataframe: pd.DataFrame, window_title: str):
-    x_data, y_data = dataframe["bins"].apply(lambda x: x[0]), dataframe["bins"].apply(lambda x: x[1])
+    plt.rcParams.update({"font.size": 18})
+    x_data, y_data = dataframe["bins"].apply(lambda x: x[0]) / 10, dataframe["bins"].apply(lambda x: x[1]) / 10
     z_data = np.array(dataframe["optimal_parts"])
     points = np.array([x_data, y_data]).T
 
     x_grid, y_grid = np.mgrid[0 : x_data.max() : 80j, 0 : y_data.max() : 80j]
     z_grid = griddata(points, z_data, (x_grid, y_grid), method="cubic")
 
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(x_grid, y_grid, z_grid, cmap=cm.summer, linewidth=0, antialiased=True)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(20, 15))
+    surf = ax.plot_surface(x_grid, y_grid, z_grid, cmap=cm.coolwarm, linewidth=0, antialiased=True)
     ax.invert_xaxis()
-    ax.set_xlabel("curiosity")
-    ax.set_ylabel("collaboration")
-    ax.set_zlabel("parts")
+    ax.set_xlabel("curiosity", labelpad=10)
+    ax.set_ylabel("collaboration", labelpad=10)
+    ax.set_zlabel("shares")
     fig.colorbar(surf, shrink=0.5, aspect=5)
-    for row in group.itertuples():
-        ax.text(x=row.bins[0], y=row.bins[1], z=row.optimal_parts, s=str(row.optimal_parts))
+    # for row in group.itertuples():
+    #     ax.text(x=row.bins[0], y=row.bins[1], z=row.optimal_parts, s=str(row.optimal_parts))
 
     plt.get_current_fig_manager().set_window_title(window_title)
 
@@ -66,7 +67,7 @@ def draw_heatmap(dataframe: pd.DataFrame, window_title: str):
     plt.get_current_fig_manager().set_window_title(window_title)
 
 
-df = pd.read_csv("results/both.csv").sort_values(by=["graph_size", "bins"])
+df = pd.read_csv("results/results.csv").sort_values(by=["graph_size", "bins"])
 df["bins"] = df["bins"].apply(lambda x: eval(x))
 group_df = df.groupby("graph_size")
 
